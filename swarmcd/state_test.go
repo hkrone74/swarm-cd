@@ -90,6 +90,11 @@ func TestDeployHash(t *testing.T) {
 	}
 
 	// options that change the deploy command count as a change, too
+	stack.prune = true
+	if base == stack.deployHash(compose) {
+		t.Errorf("hash ignores prune")
+	}
+	stack.prune = false
 	stack.alwaysPullContainers = boolPtr(true)
 	if base == stack.deployHash(compose) {
 		t.Errorf("hash ignores the resolve image mode")

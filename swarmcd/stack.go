@@ -24,6 +24,7 @@ type swarmStack struct {
 	valuesFile           string
 	discoverSecrets      bool
 	alwaysPullContainers *bool
+	prune                bool
 }
 
 func newSwarmStack(name string, repo *stackRepo, branch string, composePath string, sopsFiles []string, valuesFile string, discoverSecrets bool, alwaysPullContainers *bool) *swarmStack {
@@ -40,7 +41,7 @@ func newSwarmStack(name string, repo *stackRepo, branch string, composePath stri
 }
 
 func newSwarmStackFromConfig(name string, repo *stackRepo, stackConfig *util.StackConfig, globalSecretsDiscovery bool) *swarmStack {
-	return newSwarmStack(
+	swarmStack := newSwarmStack(
 		name,
 		repo,
 		stackConfig.Branch,
@@ -50,6 +51,8 @@ func newSwarmStackFromConfig(name string, repo *stackRepo, stackConfig *util.Sta
 		globalSecretsDiscovery || stackConfig.SopsSecretsDiscovery,
 		stackConfig.AlwaysPullContainers,
 	)
+	swarmStack.prune = stackConfig.Prune
+	return swarmStack
 }
 
 func (swarmStack *swarmStack) updateStack() (revision string, deployed bool, err error) {
@@ -142,7 +145,7 @@ func marshalStack(composeMap map[string]any) ([]byte, error) {
 func (swarmStack *swarmStack) deployHash(composeBytes []byte) string {
 	hash := sha256.New()
 	hash.Write(composeBytes)
-	fmt.Fprintf(hash, "\x00resolve-image=%s", swarmStack.resolveImageMode())
+	fmt.Fprintf(hash, "\x00resolve-image=%s\x00prune=%t", swarmStack.resolveImageMode(), swarmStack.prune)
 	return fmt.Sprintf("%x", hash.Sum(nil))
 }
 
@@ -305,12 +308,7 @@ func (swarmStack *swarmStack) writeStack(composeFileBytes []byte) error {
 
 func (swarmStack *swarmStack) deployStack() error {
 	cmd := stack.NewStackCommand(dockerCli)
-	cmd.SetArgs([]string{
-		"deploy", "--detach", "--with-registry-auth",
-		"--resolve-image", swarmStack.resolveImageMode(),
-		"-c", path.Join(swarmStack.repo.path, swarmStack.composePath),
-		swarmStack.name,
-	})
+	cmd.SetArgs(swarmStack.deployArgs())
 	// To stop printing errors and
 	// usage message to stdout
 	cmd.SilenceErrors = true
@@ -320,6 +318,20 @@ func (swarmStack *swarmStack) deployStack() error {
 		return fmt.Errorf("could not deploy stack %s: %s", swarmStack.name, err)
 	}
 	return nil
+}
+
+func (swarmStack *swarmStack) deployArgs() []string {
+	args := []string{
+		"deploy", "--detach", "--with-registry-auth",
+		"--resolve-image", swarmStack.resolveImageMode(),
+	}
+	if swarmStack.prune {
+		args = append(args, "--prune")
+	}
+	return append(args,
+		"-c", path.Join(swarmStack.repo.path, swarmStack.composePath),
+		swarmStack.name,
+	)
 }
 
 // Returns "always" when alwaysPullContainers is true, "changed" otherwise.

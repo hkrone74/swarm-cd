@@ -1,6 +1,7 @@
 package swarmcd
 
 import (
+	"strings"
 	"sync"
 	"testing"
 
@@ -98,5 +99,33 @@ secrets:
 	}
 	if sopsFiles[0] != "stacks/secrets/secret.yaml" {
 		t.Errorf("unexpected sops file: %s", sopsFiles[0])
+	}
+}
+
+// --prune is only passed for stacks that ask for it
+func TestDeployArgsPrune(t *testing.T) {
+	originalConfig := config
+	config = &util.Config{AlwaysPullContainers: false}
+	t.Cleanup(func() { config = originalConfig })
+
+	repo := &stackRepo{name: "test", path: "/repos/test", lock: &sync.Mutex{}}
+	stack := newSwarmStack("app", repo, "main", "st/app.yml", nil, "", false, nil)
+
+	want := "deploy --detach --with-registry-auth --resolve-image changed -c /repos/test/st/app.yml app"
+	if got := strings.Join(stack.deployArgs(), " "); got != want {
+		t.Errorf("deployArgs() = %q, want %q", got, want)
+	}
+	stack.prune = true
+	want = "deploy --detach --with-registry-auth --resolve-image changed --prune -c /repos/test/st/app.yml app"
+	if got := strings.Join(stack.deployArgs(), " "); got != want {
+		t.Errorf("deployArgs() with prune = %q, want %q", got, want)
+	}
+}
+
+func TestPruneFromConfig(t *testing.T) {
+	repo := &stackRepo{name: "test", path: "test", lock: &sync.Mutex{}}
+	stack := newSwarmStackFromConfig("app", repo, &util.StackConfig{Branch: "main", ComposeFile: "a.yml", Prune: true}, false)
+	if !stack.prune {
+		t.Errorf("prune from stack config not applied")
 	}
 }

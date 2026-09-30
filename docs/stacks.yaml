@@ -30,3 +30,7 @@ stack-name:
   # default. When set to true, always pulls new images.
   # When set to false, only pulls when images tags change in the stack file.
   always_pull_containers: false
+  # Pass --prune to docker stack deploy: services that are no
+  # longer in the compose file are removed. Off by default, as
+  # a service removed from the file is then gone for good.
+  prune: false

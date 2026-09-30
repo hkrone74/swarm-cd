@@ -16,6 +16,7 @@ type StackConfig struct {
 	SopsFiles            []string `mapstructure:"sops_files"`
 	SopsSecretsDiscovery bool     `mapstructure:"sops_secrets_discovery"`
 	AlwaysPullContainers *bool    `mapstructure:"always_pull_containers"`
+	Prune                bool     `mapstructure:"prune"`
 }
 
 type RepoConfig struct {
