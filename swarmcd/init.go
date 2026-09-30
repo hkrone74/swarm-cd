@@ -27,7 +27,13 @@ var repos map[string]*stackRepo = map[string]*stackRepo{}
 
 var dockerCli *command.DockerCli
 
+var deployedStacks *deployState
+
 func Init() (err error) {
+	err = initDeployState()
+	if err != nil {
+		return err
+	}
 	err = initRepos()
 	if err != nil {
 		return err
@@ -41,6 +47,16 @@ func Init() (err error) {
 		return err
 	}
 	return
+}
+
+func initDeployState() error {
+	state, err := loadDeployState(config.StateFile)
+	if err != nil {
+		// not fatal: every stack is deployed once, then the file is rewritten
+		logger.Warn(err.Error())
+	}
+	deployedStacks = state
+	return nil
 }
 
 func initRepos() error {

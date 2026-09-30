@@ -51,7 +51,7 @@ func updateStackThread(swarmStack *swarmStack) {
 	defer repoLock.Unlock()
 
 	logger.Debug(fmt.Sprintf("%s checking if stack needs to be updated", swarmStack.name))
-	revision, err := swarmStack.updateStack()
+	revision, _, err := swarmStack.updateStack()
 	if err != nil {
 		stackStatus[swarmStack.name].Error = err.Error()
 		logger.Error(err.Error())

@@ -3,6 +3,7 @@ package swarmcd
 import (
 	"bytes"
 	"crypto/md5"
+	"crypto/sha256"
 	"fmt"
 	"log/slog"
 	"os"
@@ -51,7 +52,7 @@ func newSwarmStackFromConfig(name string, repo *stackRepo, stackConfig *util.Sta
 	)
 }
 
-func (swarmStack *swarmStack) updateStack() (revision string, err error) {
+func (swarmStack *swarmStack) updateStack() (revision string, deployed bool, err error) {
 	log := logger.With(
 		slog.String("stack", swarmStack.name),
 		slog.String("branch", swarmStack.branch),
@@ -87,7 +88,7 @@ func (swarmStack *swarmStack) updateStack() (revision string, err error) {
 	log.Debug("decrypting secrets...")
 	err = swarmStack.decryptSopsFiles(stackContents)
 	if err != nil {
-		return "", fmt.Errorf("failed to decrypt one or more sops files for %s stack: %w", swarmStack.name, err)
+		return "", false, fmt.Errorf("failed to decrypt one or more sops files for %s stack: %w", swarmStack.name, err)
 	}
 
 	if config.AutoRotate {
@@ -98,15 +99,51 @@ func (swarmStack *swarmStack) updateStack() (revision string, err error) {
 		}
 	}
 
+	composeBytes, err := marshalStack(stackContents)
+	if err != nil {
+		return "", false, fmt.Errorf("could not store compose file as yaml after calculating hashes for stack %s: %w", swarmStack.name, err)
+	}
+	hash := swarmStack.deployHash(composeBytes)
+	if config.DeployOnlyOnChange && deployedStacks.unchanged(swarmStack.name, hash) {
+		log.Debug("stack unchanged since last deploy, skipping", "revision", revision, "hash", hash[:12])
+		return
+	}
+
 	log.Debug("writing stack to file...")
-	err = swarmStack.writeStack(stackContents)
+	err = swarmStack.writeStack(composeBytes)
 	if err != nil {
 		return
 	}
 
-	log.Debug("deploying stack...")
+	log.Info("deploying stack...", "revision", revision, "hash", hash[:12])
 	err = swarmStack.deployStack()
+	if err != nil {
+		return
+	}
+	deployed = true
+	err = deployedStacks.record(swarmStack.name, hash, revision)
+	if err != nil {
+		// the stack is deployed; a lost record only means one more deploy
+		log.Error("could not record deploy", "error", err)
+		err = nil
+	}
 	return
+}
+
+// marshalStack renders the compose map as it will be deployed. Map keys are
+// sorted, so the same content always gives the same bytes.
+func marshalStack(composeMap map[string]any) ([]byte, error) {
+	return yaml.Marshal(composeMap)
+}
+
+// deployHash identifies what a deploy would apply: the final compose file
+// (with rotated config and secret names, so their content is included) and
+// the options that change the deploy command.
+func (swarmStack *swarmStack) deployHash(composeBytes []byte) string {
+	hash := sha256.New()
+	hash.Write(composeBytes)
+	fmt.Fprintf(hash, "\x00resolve-image=%s", swarmStack.resolveImageMode())
+	return fmt.Sprintf("%x", hash.Sum(nil))
 }
 
 func (swarmStack *swarmStack) readStack() ([]byte, error) {
@@ -254,14 +291,15 @@ func (swarmStack *swarmStack) rotateObjects(objects map[string]any, objectType s
 	return nil
 }
 
-func (swarmStack *swarmStack) writeStack(composeMap map[string]any) error {
-	composeFileBytes, err := yaml.Marshal(composeMap)
-	if err != nil {
-		return fmt.Errorf("could not store compose file as yaml after calculating hashes for stack %s", swarmStack.name)
-	}
+func (swarmStack *swarmStack) writeStack(composeFileBytes []byte) error {
 	composeFile := path.Join(swarmStack.repo.path, swarmStack.composePath)
-	fileInfo, _ := os.Stat(composeFile)
-	os.WriteFile(composeFile, composeFileBytes, fileInfo.Mode())
+	fileInfo, err := os.Stat(composeFile)
+	if err != nil {
+		return fmt.Errorf("could not stat compose file %s: %w", composeFile, err)
+	}
+	if err = os.WriteFile(composeFile, composeFileBytes, fileInfo.Mode()); err != nil {
+		return fmt.Errorf("could not write compose file %s: %w", composeFile, err)
+	}
 	return nil
 }
 

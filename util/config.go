@@ -35,6 +35,8 @@ type Config struct {
 	SopsSecretsDiscovery bool                    `mapstructure:"sops_secrets_discovery"`
 	Address              string                  `mapstructure:"address"`
 	AlwaysPullContainers bool                    `mapstructure:"always_pull_containers"`
+	DeployOnlyOnChange   bool                    `mapstructure:"deploy_only_on_change"`
+	StateFile            string                  `mapstructure:"state_file"`
 }
 
 var Configs Config
@@ -82,6 +84,8 @@ func readConfig(path string) (err error) {
 	configViper.SetDefault("sops_secrets_discovery", false)
 	configViper.SetDefault("always_pull_containers", true)
 	configViper.SetDefault("address", "0.0.0.0:8080")
+	configViper.SetDefault("deploy_only_on_change", false)
+	configViper.SetDefault("state_file", "")
 	err = configViper.ReadInConfig()
 	if err != nil && !errors.As(err, &viper.ConfigFileNotFoundError{}) {
 		return

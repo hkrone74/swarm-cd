@@ -30,6 +30,21 @@ auto_rotate: true
 # This is a global default that can be overridden per-stack.
 always_pull_containers: true
 
+# Only run `docker stack deploy` when the stack would change.
+# SwarmCD hashes the compose file as it would be deployed (after
+# template rendering and config/secret rotation, so config and
+# secret contents count) together with the deploy options, and
+# skips the deploy when the hash equals the last successful one.
+# A commit that does not touch a stack does not redeploy it.
+# NOTE: drift is no longer corrected. A service changed or removed
+# by hand stays that way until its stack file changes.
+deploy_only_on_change: false
+
+# File to persist the last deployed hash per stack. Without it the
+# state is kept in memory, and a restart deploys every stack once.
+# A missing or corrupt file is not fatal; it has the same effect.
+state_file: /data/state.json
+
 # You can define repos here instead of
 # defining a separate repos.yaml file
 repos:
