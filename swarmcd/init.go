@@ -117,6 +117,7 @@ func initStacks() error {
 		stacks = append(stacks, swarmStack)
 		stackStatus[stack] = &StackStatus{}
 		stackStatus[stack].RepoURL = stackRepo.url
+		metrics.initStack(stack, deployedStacks.deployed(stack))
 	}
 	return nil
 }

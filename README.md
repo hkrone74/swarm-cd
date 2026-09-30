@@ -262,6 +262,24 @@ secrets:
 ```
 Note: if running swarmcd as a user other than root, modify the docker config mount path to match.
 
+## Prometheus metrics
+
+SwarmCD serves metrics on `/metrics` of the web server (`address`), per stack:
+
+| Metric | Meaning |
+|---|---|
+| `swarmcd_stack_last_check_timestamp_seconds` | last update check, successful or not |
+| `swarmcd_stack_last_success_timestamp_seconds` | last update check without error |
+| `swarmcd_stack_last_failure_timestamp_seconds` | last update check with an error |
+| `swarmcd_stack_failing` | 1 if the last update check failed |
+| `swarmcd_stack_last_deploy_timestamp_seconds` | last successful `docker stack deploy` |
+| `swarmcd_stack_deployed_info{revision}` | commit of the last successful deploy |
+| `swarmcd_stack_deploys_total`, `swarmcd_stack_failures_total` | counters |
+
+A stale `last_check` means the update loop is stuck; `failing` means a stack
+cannot be pulled, rendered or deployed. With `deploy_only_on_change` and a
+`state_file`, the last deploy survives restarts.
+
 ## Documentation
 
 See [docs](https://github.com/m-adawi/swarm-cd/blob/main/docs).
