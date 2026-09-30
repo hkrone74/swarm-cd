@@ -1,0 +1,55 @@
+== Abbild aus /workspace/swarm-cd bauen
+sha256:2b5b9b7b8c7523f0e5c7cb7aefbfbc6a155268a0d9b2dfdab8273fed45a13cd9
+
+== Aufbau
+swarm-cd: localhost:5000/swarm-cd:pruefstand
+swarm-cd hat app und pr mit 311c7960 ausgerollt
+
+== 4 · Commit ohne Stack-Änderung rollt nicht aus
+BESTANDEN      drei Runden nach 0df73244: deploys_total bleibt 1
+BESTANDEN      Log: 'stack unchanged since last deploy, skipping'
+
+== 1 · Pull nach dem Zurückschreiben der Compose-Datei
+BESTANDEN      56dc9e0d ausgerollt, obwohl die Datei im Checkout verändert war
+BESTANDEN      nebendienst hat STAND=2
+
+== 2 · Abbild von Shepherd bleibt beim Ausrollen stehen
+Shepherd hat nachgezogen: sha256:3d79b28516c46bf1594dc2e379355b47d4b2cea0f507f39d72ee17b962972736 → sha256:6123e79f82e95b1da7c024b0c9e77056b2682295c4a959326fbb3011dce941a0
+BESTANDEN      6bab8f4a ausgerollt (NEU=1), Digest bleibt sha256:6123e79f82e95b1da7c024b0c9e77056b2682295c4a959326fbb3011dce941a0
+
+== 3 · geänderte Config bekommt neuen Namen, unveränderte nicht
+BESTANDEN      app_app liest 'hallo zwei' (Config vorher: app-gruss-aee97cb3 )
+BESTANDEN      unveränderte Config app-fest-c25e7f82 bleibt, nebendienst nicht neu gestartet
+
+== 5 · Neustart von swarm-cd rollt nichts aus (state_file)
+BESTANDEN      neue Task m8ils7bo2r97vg0wumewfrq9m: nur 'skipping', kein 'deploying stack'; deployed_at bleibt 2026-09-30T15:45:35.621016152Z
+BESTANDEN      deployed_info nach Neustart weiter a3ef1c03 (aus state_file)
+
+== 6 · Kennzahlen: Fehler und Erholung
+BESTANDEN      swarmcd_stack_failing{stack=app} = 1, failures_total = 1
+BESTANDEN      pr unberührt: failing = 0
+BESTANDEN      nach Reparatur failing = 0
+
+== 7 · --prune nur, wo eingeschaltet
+BESTANDEN      pr (prune: true): pr_b entfernt
+BESTANDEN      app (ohne prune): app_weg bleibt
+
+== Kennzahlen am Ende
+swarmcd_stack_deployed_info{revision="a070250f",stack="app"} 1
+swarmcd_stack_deployed_info{revision="a070250f",stack="pr"} 1
+swarmcd_stack_deploys_total{stack="app"} 1
+swarmcd_stack_deploys_total{stack="pr"} 1
+swarmcd_stack_failing{stack="app"} 0
+swarmcd_stack_failing{stack="pr"} 0
+swarmcd_stack_failures_total{stack="app"} 1
+swarmcd_stack_failures_total{stack="pr"} 0
+swarmcd_stack_last_check_timestamp_seconds{stack="app"} 1.790783205e+09
+swarmcd_stack_last_check_timestamp_seconds{stack="pr"} 1.790783205e+09
+swarmcd_stack_last_deploy_timestamp_seconds{stack="app"} 1.790783205e+09
+swarmcd_stack_last_deploy_timestamp_seconds{stack="pr"} 1.790783205e+09
+swarmcd_stack_last_failure_timestamp_seconds{stack="app"} 1.790783185e+09
+swarmcd_stack_last_success_timestamp_seconds{stack="app"} 1.790783205e+09
+swarmcd_stack_last_success_timestamp_seconds{stack="pr"} 1.790783205e+09
+
+URTEIL: BESTANDEN
+bleibt stehen: docker exec -it scd-pruefstand sh; entfernen mit docker rm -f -v scd-pruefstand
