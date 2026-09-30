@@ -3,6 +3,21 @@
 # das Abbild bekommt genau diese Marke und kein `latest` (ADR 0002, Abschnitt 5 — swarm-cd
 # ist Plattform und läuft mit fester Version).
 
+# Runner-Zuordnung wie im Template hkrone74/ci (ADR 0003 in infrastruktur, Redmine #127):
+# geschuetzte Refs auf `geschuetzt`, alles andere auf `allgemein`. Die Build-Tags `v*-ssk.*`
+# sind in GitLab als protected tags eingetragen und bauen deshalb auf `geschuetzt`.
+workflow:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: never
+    - if: '$CI_COMMIT_REF_PROTECTED == "true"'
+      variables: { RUNNER_TAG: geschuetzt }
+    - when: always
+      variables: { RUNNER_TAG: allgemein }
+
+default:
+  tags: [$RUNNER_TAG]
+
 stages:
   - test
   - package
@@ -18,13 +33,16 @@ build-job:
   stage: package
   rules:
     - if: '$CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+-ssk\.[0-9]+$/'
-  image: docker
-  services:
-    - name: docker:dind
-      command: ["--insecure-registry=registry.ssk.internal"]
+  # kaniko statt dind: baut ohne Docker-Daemon und ohne privileged. Dieselbe Version wie
+  # `.bauen` im Template hkrone74/ci; bei einem Wechsel dort hier mitziehen.
+  image:
+    name: martizih/kaniko:v1.28.5-debug@sha256:d6d74217dc077acfd3094992e917c357080a2d3fdd1042a49e34e29a7e57c572
+    entrypoint: [""]
   variables:
     IMAGE_TAG: registry.ssk.internal/$CI_PROJECT_NAME:$CI_COMMIT_TAG
-    DOCKER_TLS_CERTDIR: ""
   script:
-    - docker build --pull -t $IMAGE_TAG .
-    - docker push $IMAGE_TAG
+    - /kaniko/executor
+        --context "$CI_PROJECT_DIR"
+        --dockerfile "$CI_PROJECT_DIR/Dockerfile"
+        --insecure-registry registry.ssk.internal
+        --destination "$IMAGE_TAG"
